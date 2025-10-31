@@ -4,28 +4,32 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Qui est le +</title>
-  <!-- Firebase compat (version navigateur classique) -->
+  <!-- Firebase compat -->
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
   <style>
     body { font-family: sans-serif; background: #111; color: #fff; text-align: center; padding: 20px; }
-    h1 { margin-bottom: 20px; }
+    h1 { margin-bottom: 10px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; max-width: 800px; margin: auto; }
     .person { background: #222; border-radius: 12px; padding: 10px; cursor: pointer; transition: 0.2s; }
     .person:hover { background: #333; }
     img { width: 100%; border-radius: 12px; }
-    .results { margin-top: 40px; max-width: 500px; margin: 40px auto; }
+    .results { margin-top: 30px; max-width: 500px; margin: 30px auto; }
     .row { display: flex; justify-content: space-between; padding: 10px; background: #222; margin-bottom: 10px; border-radius: 8px; }
+    #nextRound { margin-top: 20px; padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 8px; border: none; background: #444; color: #fff; }
+    #nextRound:hover { background: #666; }
   </style>
 </head>
 <body>
-  <h1>Qui est le + ?</h1>
+  <h1 id="question">Qui est le + ?</h1>
   <p>Clique sur la personne pour voter.</p>
 
   <div class="grid" id="peopleGrid"></div>
 
   <h2>Résultats en direct</h2>
   <div class="results" id="results"></div>
+
+  <button id="nextRound" style="display:none;">Round suivant</button>
 
   <script>
     // 🔥 Configuration Firebase
@@ -43,48 +47,98 @@
     var app = firebase.initializeApp(firebaseConfig);
     var db = firebase.firestore();
 
-    // ✅ Liste des participants
+    // Liste des participants
     var people = [
       { name: "Leonardo", img: "https://via.placeholder.com/150" },
-      { name: "Enzo", img: "https://via.placeholder.com/150" },
-      { name: "Meline", img: "https://via.placeholder.com/150" }
+      { name: "Eric", img: "https://via.placeholder.com/150" },
+      { name: "Leane", img: "https://via.placeholder.com/150" },
+      { name: "Meline", img: "https://via.placeholder.com/150" },
+      { name: "Enzo", img: "https://via.placeholder.com/150" }
     ];
+
+    // Rounds (adjectifs)
+    var rounds = ["drôle", "intelligent", "sportif", "raciste", "woke"];
+    var currentRound = 0;
 
     var grid = document.getElementById("peopleGrid");
     var results = document.getElementById("results");
+    var question = document.getElementById("question");
+    var nextRoundBtn = document.getElementById("nextRound");
 
-    // Affichage des participants
-    people.forEach(function(p) {
-      var div = document.createElement("div");
-      div.className = "person";
-      div.innerHTML = "<img src='" + p.img + "' /><p>" + p.name + "</p>";
-      div.onclick = function() { voteFor(p.name); };
-      grid.appendChild(div);
-    });
+    // Afficher les participants
+    function displayPeople() {
+      grid.innerHTML = "";
+      people.forEach(function(p) {
+        var div = document.createElement("div");
+        div.className = "person";
+        div.innerHTML = "<img src='" + p.img + "' /><p>" + p.name + "</p>";
+        div.onclick = function() { voteFor(p.name); };
+        grid.appendChild(div);
+      });
+    }
+
+    displayPeople();
 
     // Fonction de vote
     function voteFor(name) {
-      db.collection("votes").add({ person: name, date: Date.now() })
-        .then(function() { alert("Vote enregistré pour " + name + "!"); })
-        .catch(function(error) { console.error("Erreur :", error); });
+      db.collection("votes").add({
+        person: name,
+        round: rounds[currentRound],
+        date: Date.now()
+      })
+      .then(function() { 
+        alert("Vote enregistré pour " + name + "!"); 
+      })
+      .catch(function(error) { console.error("Erreur :", error); });
     }
 
-    // Affichage des résultats en temps réel
-    db.collection("votes").onSnapshot(function(snap) {
-      var counts = {};
-      people.forEach(function(p) { counts[p.name] = 0; });
+    // Afficher les résultats du round en direct
+    function showResults() {
+      db.collection("votes").where("round", "==", rounds[currentRound])
+        .onSnapshot(function(snap) {
+          var counts = {};
+          people.forEach(function(p) { counts[p.name] = 0; });
 
-      snap.forEach(function(doc) {
-        var v = doc.data().person;
-        if (counts[v] !== undefined) counts[v]++;
-      });
+          snap.forEach(function(doc) {
+            var v = doc.data().person;
+            if (counts[v] !== undefined) counts[v]++;
+          });
 
-      var sorted = Object.entries(counts).sort(function(a,b){ return b[1]-a[1]; });
+          var sorted = Object.entries(counts).sort(function(a,b){ return b[1]-a[1]; });
 
-      results.innerHTML = sorted.map(function(entry) {
-        return "<div class='row'><span>" + entry[0] + "</span><span>" + entry[1] + " votes</span></div>";
-      }).join("");
-    });
+          results.innerHTML = sorted.map(function(entry) {
+            return "<div class='row'><span>" + entry[0] + "</span><span>" + entry[1] + " votes</span></div>";
+          }).join("");
+
+          // Afficher le bouton round suivant si au moins une vote a été fait
+          if (snap.size > 0) {
+            nextRoundBtn.style.display = "inline-block";
+          }
+        });
+    }
+
+    showResults();
+
+    // Bouton pour passer au round suivant
+    nextRoundBtn.onclick = function() {
+      currentRound++;
+      if (currentRound >= rounds.length) {
+        alert("Fin des rounds !");
+        nextRoundBtn.style.display = "none";
+        question.innerText = "Merci d'avoir joué !";
+        grid.innerHTML = "";
+        results.innerHTML = "";
+      } else {
+        question.innerText = "Qui est le + " + rounds[currentRound] + " ?";
+        results.innerHTML = "";
+        displayPeople();
+        showResults();
+        nextRoundBtn.style.display = "none";
+      }
+    };
+
+    // Initialiser la question du premier round
+    question.innerText = "Qui est le + " + rounds[currentRound] + " ?";
   </script>
 </body>
 </html>
