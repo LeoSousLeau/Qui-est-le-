@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Qui est le +</title>
-  <!-- Firebase SDK -->
+  <!-- Firebase classique (version compatible navigateur) -->
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
   <style>
@@ -29,7 +29,7 @@
 
   <script>
     // 🔥 Configuration Firebase
-    const firebaseConfig = {
+    var firebaseConfig = {
       apiKey: "AIzaSyDESmci3PRo5-T48BtmMQG04AxDH4BlYzA",
       authDomain: "qui-est-le-plus-7f7f2.firebaseapp.com",
       projectId: "qui-est-le-plus-7f7f2",
@@ -40,49 +40,50 @@
     };
 
     // Initialiser Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    var app = firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
 
     // ✅ Liste des participants
-    const people = [
-      { name: "Leonardo", img: "https://via.placeholder.com/150" },
-      { name: "Meline", img: "https://via.placeholder.com/150" },
-      { name: "Enzo", img: "https://via.placeholder.com/150" }
+    var people = [
+      { name: "Alice", img: "https://via.placeholder.com/150" },
+      { name: "Bob", img: "https://via.placeholder.com/150" },
+      { name: "Charlie", img: "https://via.placeholder.com/150" }
     ];
 
-    const grid = document.getElementById("peopleGrid");
-    const results = document.getElementById("results");
+    var grid = document.getElementById("peopleGrid");
+    var results = document.getElementById("results");
 
     // Affichage des participants
-    people.forEach((p) => {
-      const div = document.createElement("div");
+    people.forEach(function(p) {
+      var div = document.createElement("div");
       div.className = "person";
-      div.innerHTML = `<img src="${p.img}" /><p>${p.name}</p>`;
-      div.onclick = () => voteFor(p.name);
+      div.innerHTML = "<img src='" + p.img + "' /><p>" + p.name + "</p>";
+      div.onclick = function() { voteFor(p.name); };
       grid.appendChild(div);
     });
 
     // Fonction de vote
-    async function voteFor(name) {
-      await db.collection("votes").add({ person: name, date: Date.now() });
-      alert("Vote enregistré pour " + name + " !");
+    function voteFor(name) {
+      db.collection("votes").add({ person: name, date: Date.now() })
+        .then(function() { alert("Vote enregistré pour " + name + "!"); })
+        .catch(function(error) { console.error("Erreur :", error); });
     }
 
     // Affichage des résultats en temps réel
-    db.collection("votes").onSnapshot((snap) => {
-      const counts = {};
-      people.forEach((p) => counts[p.name] = 0);
+    db.collection("votes").onSnapshot(function(snap) {
+      var counts = {};
+      people.forEach(function(p) { counts[p.name] = 0; });
 
-      snap.forEach((doc) => {
-        const v = doc.data().person;
+      snap.forEach(function(doc) {
+        var v = doc.data().person;
         if (counts[v] !== undefined) counts[v]++;
       });
 
-      const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+      var sorted = Object.entries(counts).sort(function(a,b){ return b[1]-a[1]; });
 
-      results.innerHTML = sorted
-        .map(([name, count]) => `<div class='row'><span>${name}</span><span>${count} votes</span></div>`)
-        .join("");
+      results.innerHTML = sorted.map(function(entry) {
+        return "<div class='row'><span>" + entry[0] + "</span><span>" + entry[1] + " votes</span></div>";
+      }).join("");
     });
   </script>
 </body>
