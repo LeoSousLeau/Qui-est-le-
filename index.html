@@ -26,7 +26,7 @@
 
   <div class="grid" id="peopleGrid"></div>
 
-  <h2>Résultats en direct</h2>
+  <h2>Résultats</h2>
   <div class="results" id="results"></div>
 
   <button id="nextRound" style="display:none;">Round suivant</button>
@@ -43,102 +43,122 @@
       measurementId: "G-38E1ERZB4Z"
     };
 
-    // Initialiser Firebase (compat)
+    // Initialiser Firebase
     var app = firebase.initializeApp(firebaseConfig);
     var db = firebase.firestore();
 
-    // Liste des participants
-    var people = [
-      { name: "Leonardo", img: "https://via.placeholder.com/150" },
-      { name: "Eric", img: "https://via.placeholder.com/150" },
-      { name: "Leane", img: "https://via.placeholder.com/150" },
-      { name: "Meline", img: "https://via.placeholder.com/150" },
-      { name: "Enzo", img: "https://via.placeholder.com/150" }
-    ];
-
-    // Rounds (adjectifs)
-    var rounds = ["drôle", "intelligent", "sportif", "raciste", "woke"];
+    // --- CONFIGURATION DU JEU ---
+    var partyId = "ma-soiree-1";  // même pour tous les joueurs
+    var totalPlayers = 3;         // nombre total de joueurs
+    var rounds = ["drôle", "intelligent", "sportif"];
     var currentRound = 0;
+
+    // Joueurs avec photos
+    var people = [
+      { name: "Leonardo", img: "https://imgur.com/a/LRrcPl8" },
+      { name: "Enzo", img: "https://via.placeholder.com/150/66ff66" },
+      { name: "Meline", img: "https://via.placeholder.com/150/6666ff" }
+    ];
 
     var grid = document.getElementById("peopleGrid");
     var results = document.getElementById("results");
     var question = document.getElementById("question");
     var nextRoundBtn = document.getElementById("nextRound");
 
-    // Afficher les participants
+    var selectedVote = null; // stocke le vote local
+
+    // Affichage des participants
     function displayPeople() {
       grid.innerHTML = "";
       people.forEach(function(p) {
         var div = document.createElement("div");
         div.className = "person";
         div.innerHTML = "<img src='" + p.img + "' /><p>" + p.name + "</p>";
-        div.onclick = function() { voteFor(p.name); };
+        div.onclick = function() { selectVote(p.name, div); };
         grid.appendChild(div);
       });
     }
 
     displayPeople();
 
-    // Fonction de vote
-    function voteFor(name) {
-      db.collection("votes").add({
-        person: name,
-        round: rounds[currentRound],
-        date: Date.now()
-      })
-      .then(function() { 
-        alert("Vote enregistré pour " + name + "!"); 
-      })
-      .catch(function(error) { console.error("Erreur :", error); });
+    function selectVote(name, divElement) {
+      selectedVote = name;
+      // mettre en évidence le choix local
+      document.querySelectorAll(".person").forEach(el => el.style.border = "none");
+      divElement.style.border = "3px solid yellow";
     }
 
-    // Afficher les résultats du round en direct
-    function showResults() {
-      db.collection("votes").where("round", "==", rounds[currentRound])
+    // Valider le vote et l'envoyer à Firebase
+    function submitVote() {
+      if (!selectedVote) {
+        alert("Choisis quelqu'un avant de valider !");
+        return;
+      }
+      db.collection("votes").add({
+        person: selectedVote,
+        round: rounds[currentRound],
+        party: partyId,
+        date: Date.now()
+      }).then(() => {
+        // désactiver le clic après vote
+        document.querySelectorAll(".person").forEach(el => el.style.pointerEvents = "none");
+      });
+    }
+
+    // Écouter les votes et révéler quand tout le monde a voté
+    function listenVotes() {
+      db.collection("votes")
+        .where("round", "==", rounds[currentRound])
+        .where("party", "==", partyId)
         .onSnapshot(function(snap) {
-          var counts = {};
-          people.forEach(function(p) { counts[p.name] = 0; });
+          if (snap.size === totalPlayers) {
+            // compter les votes
+            var counts = {};
+            people.forEach(p => counts[p.name] = 0);
+            snap.forEach(doc => {
+              var v = doc.data().person;
+              if (counts[v] !== undefined) counts[v]++;
+            });
 
-          snap.forEach(function(doc) {
-            var v = doc.data().person;
-            if (counts[v] !== undefined) counts[v]++;
-          });
+            // trier par votes
+            var sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
 
-          var sorted = Object.entries(counts).sort(function(a,b){ return b[1]-a[1]; });
+            // afficher les résultats
+            results.innerHTML = sorted.map(entry => 
+              "<div class='row'><span>" + entry[0] + "</span><span>" + entry[1] + " votes</span></div>"
+            ).join("");
 
-          results.innerHTML = sorted.map(function(entry) {
-            return "<div class='row'><span>" + entry[0] + "</span><span>" + entry[1] + " votes</span></div>";
-          }).join("");
-
-          // Afficher le bouton round suivant si au moins une vote a été fait
-          if (snap.size > 0) {
             nextRoundBtn.style.display = "inline-block";
           }
         });
     }
 
-    showResults();
+    listenVotes();
 
-    // Bouton pour passer au round suivant
     nextRoundBtn.onclick = function() {
       currentRound++;
       if (currentRound >= rounds.length) {
         alert("Fin des rounds !");
-        nextRoundBtn.style.display = "none";
         question.innerText = "Merci d'avoir joué !";
         grid.innerHTML = "";
         results.innerHTML = "";
+        nextRoundBtn.style.display = "none";
       } else {
         question.innerText = "Qui est le + " + rounds[currentRound] + " ?";
         results.innerHTML = "";
         displayPeople();
-        showResults();
+        selectedVote = null;
+        // réactiver le clic
+        document.querySelectorAll(".person").forEach(el => el.style.pointerEvents = "auto");
         nextRoundBtn.style.display = "none";
+        listenVotes();
       }
     };
 
-    // Initialiser la question du premier round
-    question.innerText = "Qui est le + " + rounds[currentRound] + " ?";
-  </script>
-</body>
-</html>
+    // Ajout d'un bouton pour valider son vote
+    var voteBtn = document.createElement("button");
+    voteBtn.innerText = "Valider mon vote";
+    voteBtn.style.marginTop = "20px";
+    voteBtn.style.padding = "10px 20px";
+    voteBtn.style.fontSize = "16px";
+    voteBtn.style.bor
