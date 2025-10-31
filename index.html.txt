@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Qui est le +</title>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #111; color: #fff; text-align: center; padding: 20px; }
+    h1 { margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; max-width: 800px; margin: auto; }
+    .person { background: #222; border-radius: 12px; padding: 10px; cursor: pointer; transition: 0.2s; }
+    .person:hover { background: #333; }
+    img { width: 100%; border-radius: 12px; }
+    .results { margin-top: 40px; max-width: 500px; margin: 40px auto; }
+    .row { display: flex; justify-content: space-between; padding: 10px; background: #222; margin-bottom: 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Qui est le + ?</h1>
+  <p>Clique sur la personne pour voter.</p>
+
+  <div class="grid" id="peopleGrid"></div>
+
+  <h2>Résultats en direct</h2>
+  <div class="results" id="results"></div>
+
+  <script>
+    // 🔥 Configuration Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDESmci3PRo5-T48BtmMQG04AxDH4BlYzA",
+      authDomain: "qui-est-le-plus-7f7f2.firebaseapp.com",
+      projectId: "qui-est-le-plus-7f7f2",
+      storageBucket: "qui-est-le-plus-7f7f2.firebasestorage.app",
+      messagingSenderId: "977215045643",
+      appId: "1:977215045643:web:889a7467a1a17116df470e",
+      measurementId: "G-38E1ERZB4Z"
+    };
+
+    // Initialiser Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // ✅ Liste des participants
+    const people = [
+      { name: "Leonardo", img: "https://via.placeholder.com/150" },
+      { name: "Meline", img: "https://via.placeholder.com/150" },
+      { name: "Enzo", img: "https://via.placeholder.com/150" }
+    ];
+
+    const grid = document.getElementById("peopleGrid");
+    const results = document.getElementById("results");
+
+    // Affichage des participants
+    people.forEach((p) => {
+      const div = document.createElement("div");
+      div.className = "person";
+      div.innerHTML = `<img src="${p.img}" /><p>${p.name}</p>`;
+      div.onclick = () => voteFor(p.name);
+      grid.appendChild(div);
+    });
+
+    // Fonction de vote
+    async function voteFor(name) {
+      await db.collection("votes").add({ person: name, date: Date.now() });
+      alert("Vote enregistré pour " + name + " !");
+    }
+
+    // Affichage des résultats en temps réel
+    db.collection("votes").onSnapshot((snap) => {
+      const counts = {};
+      people.forEach((p) => counts[p.name] = 0);
+
+      snap.forEach((doc) => {
+        const v = doc.data().person;
+        if (counts[v] !== undefined) counts[v]++;
+      });
+
+      const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+
+      results.innerHTML = sorted
+        .map(([name, count]) => `<div class='row'><span>${name}</span><span>${count} votes</span></div>`)
+        .join("");
+    });
+  </script>
+</body>
+</html>
